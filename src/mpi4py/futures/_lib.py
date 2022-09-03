@@ -22,6 +22,9 @@ from .. import MPI
 from ..util import pkl5
 from ._core import BrokenExecutor
 
+import  logging
+
+logging.basicConfig(level=logging.DEBUG, format="%(process)d:%(filename)s:%(lineno)d:%(message)s")
 
 # ---
 
@@ -396,13 +399,16 @@ class SharedPoolCtx:
         self.counter = None
         self.workers = None
         self.threads = weakref.WeakKeyDictionary()
+        logging.debug("initializing SharedPoolCtx class")
 
     def __call__(self, executor):
+        logging.debug("Calling SharedPoolCtx as a function call. args - executor: {}".format(executor))
         assert SharedPool is self
         if self.comm != MPI.COMM_NULL and self.on_root:
             tag = next(self.counter)
             if tag == 0:
                 options = executor._options
+                logging.debug("calling client_com from SharedPoolCtx __call__")
                 self.comm = client_comm(self.comm, options)
             manager = _manager_shared
             args = (self.comm, tag, self.workers)
@@ -414,6 +420,7 @@ class SharedPoolCtx:
         return pool
 
     def __enter__(self):
+        logging.debug("Entering SharedPoolCtx as a context manager")
         assert SharedPool is None
         self.on_root = MPI.COMM_WORLD.Get_rank() == 0
         if MPI.COMM_WORLD.Get_size() >= 2:
@@ -422,7 +429,9 @@ class SharedPoolCtx:
                 size = self.comm.Get_remote_size()
                 self.counter = itertools.count(0)
                 self.workers = Stack(reversed(range(size)))
+        logging.debug("Setting the SharedPoolCtx object as the global SharedPool")
         _set_shared_pool(self)
+        logging.debug("SharedPoolCtx object attributes - on_root: {}, counter: {}, workers: {}, threads: {}".format(self.on_root, self.counter, self.workers, self.threads))
         return self if self.on_root else None
 
     def __exit__(self, *args):
@@ -453,6 +462,7 @@ class SharedPoolCtx:
         self.workers = None
         self.threads.clear()
         return False
+        logging.debug("Exiting SharedPoolCtx as a context manager")
 
 
 # ---
@@ -481,8 +491,8 @@ def _setopt_use_pkl5(options):
     if use_pkl5 is not None:
         options['use_pkl5'] = use_pkl5
 
-
 def _get_comm(comm, options):
+    logging.debug("entering _get_comm. args - options: {}".format(options))    
     use_pkl5 = options.pop('use_pkl5', None)
     if use_pkl5:
         return pkl5.Intercomm(comm)
@@ -557,6 +567,7 @@ def client_sync(comm, options, full=True):
 
 
 def client_comm(comm, options):
+    logging.debug("entering client_comm. args - options: {}".format(options))
     return _get_comm(comm, options)
 
 
@@ -760,6 +771,7 @@ def get_comm_world():
 
 
 def comm_split(comm, root=0):
+    logging.debug("Entering comm_split")
     assert not comm.Is_inter()
     assert comm.Get_size() > 1
     assert 0 <= root < comm.Get_size()

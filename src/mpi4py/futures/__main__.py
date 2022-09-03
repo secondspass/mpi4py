@@ -9,6 +9,10 @@ submitted from the master process.
 """
 
 
+import  logging
+
+logging.basicConfig(level=logging.DEBUG, format="%(process)d:%(filename)s:%(lineno)d:%(message)s")
+
 def main():
     """Entry point for ``python -m mpi4py.futures ...``."""
     # pylint: disable=missing-docstring
@@ -18,6 +22,7 @@ def main():
     from ..run import run_command_line
     from ..run import set_abort_status
     from ._lib import SharedPoolCtx
+    logging.debug("In main")
 
     class UsageExit(SystemExit):
         pass
@@ -57,6 +62,7 @@ def main():
     try:
         with SharedPoolCtx() as context:
             if context is not None:
+                logging.debug("running chk_command_line and run_command_line")
                 chk_command_line()
                 run_command_line()
     except UsageExit:

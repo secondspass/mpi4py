@@ -3,6 +3,12 @@
 """Execute computations asynchronously using MPI processes."""
 # pylint: disable=redefined-builtin
 
+import  logging
+
+logging.basicConfig(level=logging.DEBUG, format="%(process)d:%(filename)s:%(lineno)d:%(message)s")
+
+logging.debug("Logging mpi4py.futures")
+
 from ._core import (
     Future,
     Executor,
