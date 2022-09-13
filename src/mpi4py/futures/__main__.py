@@ -9,9 +9,24 @@ submitted from the master process.
 """
 
 
-import  logging
+import logging
+import os
+import trace
+import sys
 
 logging.basicConfig(level=logging.DEBUG, format="%(process)d:%(filename)s:%(lineno)d:%(message)s")
+
+tracer = trace.Trace(
+    ignoremods=[
+        'inspect', 'contextlib', '_bootstrap', 'debug',
+        '_weakrefset', 'abc', 'posixpath', 'genericpath', 'textwrap', 'logging', 'threading', "__init__",
+    ],
+    ignoredirs=[sys.prefix+'/lib/python3.8/logging', ],
+    trace=1,
+    count=1)
+
+sys.stdout = open('trace_{}.txt'.format(os.getpid()), 'w')
+
 
 def main():
     """Entry point for ``python -m mpi4py.futures ...``."""
@@ -76,4 +91,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    tracer.runfunc(main)

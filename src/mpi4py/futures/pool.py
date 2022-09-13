@@ -14,6 +14,9 @@ from ._core import as_completed
 
 from . import _lib
 
+import  logging
+
+logging.basicConfig(level=logging.DEBUG, format="%(process)d:%(filename)s:%(lineno)d:%(message)s")
 
 class MPIPoolExecutor(Executor):
     """MPI-based asynchronous executor."""
@@ -114,6 +117,7 @@ class MPIPoolExecutor(Executor):
             self._bootstrap()
             future = self.Future()
             task = (fn, args, kwargs)
+            logging.debug("in MPIPoolExecutor, in submit, task: {}".format(task))
             self._pool.push((future, task))
             return future
     if sys.version_info >= (3, 8):  # pragma: no branch

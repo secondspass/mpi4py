@@ -586,6 +586,7 @@ def client_exec(comm, options, tag, worker_pool, task_queue):
     assert comm.Is_inter()
     assert comm.Get_size() == 1
     assert tag >= 0
+    logging.debug("in client_exec. args - comm: {}, options: {}, tag: {}, worker_pool: {}, task_queue: {}".format(comm, options, tag, worker_pool, task_queue))
 
     backoff = Backoff(options.get('backoff', BACKOFF))
 
@@ -639,6 +640,8 @@ def client_exec(comm, options, tag, worker_pool, task_queue):
         if not future.set_running_or_notify_cancel():
             worker_pool.put(pid)
             return False
+
+        logging.debug("In send subfunction in client_exec, from task_queue - item (future: {}, task: {}), and from worker_pool - pid {}".format(future, task, pid))
 
         try:
             request = comm_isend(task, pid, tag)
@@ -809,6 +812,7 @@ MAIN_RUN_NAME = '__worker__'
 
 
 def import_main(mod_name, mod_path, init_globals, run_name):
+    logging.debug("Entering import_main. args - mod_name: {}, mod_path: {}, init_globals: {},run_name: {}".format(mod_name, mod_path, init_globals, run_name))
     import types
     import runpy
 
