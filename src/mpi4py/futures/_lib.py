@@ -371,6 +371,17 @@ def _set_shared_pool(obj):
     SharedPool = obj
 
 
+
+import trace
+tracer_lib = trace.Trace(
+    ignoremods=[
+        'inspect', 'contextlib', '_bootstrap', 'debug',
+        '_weakrefset', 'abc', 'posixpath', 'genericpath', 'textwrap', 'logging',  "__init__", "threading",
+    ],
+    ignoredirs=[sys.prefix+'/lib/python3.8/logging', ],
+    trace=1,
+    count=1)
+
 def _manager_shared(pool, options, comm, tag, workers):
     # pylint: disable=too-many-arguments
     if tag == 0:
@@ -387,8 +398,10 @@ def _manager_shared(pool, options, comm, tag, workers):
             return
     size = comm.Get_remote_size()
     queue = pool.setup(size)
-    client_exec(comm, options, tag, workers, queue)
+    def cli_exec():
+       client_exec(comm, options, tag, workers, queue)
 
+    tracer_lib.runfunc(cli_exec)
 
 class SharedPoolCtx:
     # pylint: disable=too-few-public-methods
@@ -595,6 +608,7 @@ def client_exec(comm, options, tag, worker_pool, task_queue):
     comm_isend = serialized(comm.issend)
     comm_iprobe = serialized(comm.iprobe)
     request_free = serialized(_get_mpi(comm).Request.Free)
+    nodepid = os.getpid()
 
     pending = {}
 
@@ -652,12 +666,21 @@ def client_exec(comm, options, tag, worker_pool, task_queue):
         return None
 
     while True:
+        logging.debug("In client_exec in the while True loop - task_queue: {}, worker_pool: {}".format(task_queue, worker_pool))
         if task_queue and worker_pool:
             backoff.reset()
             stop = send()
             if stop:
                 break
-        if pending and iprobe():
+        iprobe_result = iprobe()
+        pending_mpi_status_source = []
+        for key,val in pending.items():
+            status = MPI.Status() 
+            val[1].get_status(status)
+            pending_mpi_status_source.append((key, nodepid, status, status.Get_source()))
+        
+        logging.debug("In client_exec in the while True loop - pending: {}, pending_mpi_status_source: {}, iprobe_result: {}".format(pending, pending_mpi_status_source,  iprobe_result))
+        if pending and iprobe_result:
             backoff.reset()
             recv()
         backoff.sleep()
@@ -712,6 +735,8 @@ def server_exec(comm, options):
     comm_isend = comm.issend
     comm_iprobe = comm.iprobe
     request_test = _get_mpi(comm).Request.test
+    mpi_type = _get_mpi(comm)
+    logging.debug("In server_exec - request_test: {}, mpi_type: {}".format(request_test, mpi_type))
 
     def exception():
         exc = sys_exception()
@@ -734,6 +759,7 @@ def server_exec(comm, options):
         if isinstance(task, BaseException):
             return (None, task)
         func, args, kwargs = task
+        logging.debug("In server_exec in subfunction call - func: {}, args: {}".format(func, args))
         try:
             result = func(*args, **kwargs)
             return (result, None)
@@ -747,9 +773,17 @@ def server_exec(comm, options):
         except BaseException:
             task = (None, exception())
             request = comm_isend(task, pid, tag)
+        logging.debug("In server_exec in subfunction send - task: {}, pid: {}, tag: {}".format(task, pid, tag))
         backoff.reset()
-        while not request_test(request)[0]:
-            backoff.sleep()
+        tmp = 0
+        
+        request.wait()
+        #while not request_test(request)[0]:
+        ##while not request.test()[0]:
+        #    tmp = tmp+1
+        #    if tmp % 100 == 0:
+        #        logging.debug("In server_exec in subfunction send - The `while not request_test` loop has happened {} times. task: {}, request: {}".format(tmp, task, request, mpi_type))
+        #    backoff.sleep()
 
     while True:
         task = recv()

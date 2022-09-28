@@ -323,9 +323,10 @@ class MPICommExecutor:
         self._options = kwargs
         self._executor = None
 
-    def __enter__(self):
+    def __enter__(self):    
         """Return `MPIPoolExecutor` instance at the root."""
         # pylint: disable=protected-access
+        logging.debug("Entering MPICommExecutor with __enter__")
         if self._executor is not None:
             raise RuntimeError("__enter__")
 
@@ -352,11 +353,13 @@ class MPICommExecutor:
 
     def __exit__(self, *args):
         """Shutdown `MPIPoolExecutor` instance at the root."""
+        logging.debug("MPICommExecutor __exit__. Will attempt to shutdown the MPIPoolExecutor it is manging")
         executor = self._executor
         self._executor = None
 
         if executor is not None:
             executor.shutdown(wait=True)
+            logging.debug("In MPICommExecutor, successfully shutdown the MPIPoolExecutor")
             return False
         else:
             return True
